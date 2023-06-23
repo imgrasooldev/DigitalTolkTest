@@ -1,45 +1,16 @@
-Do at least ONE of the following tasks: refactor is mandatory. Write tests is optional, will be good bonus to see it. 
-Please do not invest more than 2-4 hours on this.
-Upload your results to a Github repo, for easier sharing and reviewing.
+The code Booking controller looks like related to api but as per the standard diretory structure, kt should be placed inside some kinda \Api\Vx\BookingController.php
 
-Thank you and good luck!
+We are using worst ever method for role and permissions handling, It look like we haven't integrated spatie laravel permissions or some other well know packages, or may be we can easily implement laravel gates and policies  instead we are managing permissions in worst ever way like passing id from environment variable, In real life case it wouldn't work, i.e. suppose we need to create finance department role, and under finance department role we need to give access to 10 users and all have different access to different reports.
 
+We must need to integrate centralized return response like what I would prefer to create BaseController, this base controller will inherit the Controller, every class which is returning response should inherit this to append global function for success or failure response.
 
+In every function we must handle exception or errors by encapsulating code in try catch block
 
-Code to refactor
-=================
-1) app/Http/Controllers/BookingController.php
-2) app/Repository/BookingRepository.php
+We should not pass all reqest to repository if we need only a variable or single value
 
-Code to write tests (optional)
-=====================
-3) App/Helpers/TeHelper.php method willExpireAt
-4) App/Repository/UserRepository.php, method createOrUpdate
+We must include some facade or helper to have functions to be called statically like convertToHoursMins() available in repository should be in separate facade or in helper.
 
+Overall code quality is very bad, no use of facade, or helpers, called extra varaibles, didn't applied try catch block very lengthy functions.
 
-----------------------------
-
-What I expect in your repo:
-
-X. A readme with:   Your thoughts about the code. What makes it amazing code. Or what makes it ok code. Or what makes it terrible code. How would you have done it. Thoughts on formatting, structure, logic.. The more details that you can provide about the code (what's terrible about it or/and what is good about it) the easier for us to assess your coding style, mentality etc
-
-And 
-
-Y.  Refactor it if you feel it needs refactoring. The more love you put into it. The easier for us to asses your thoughts, code principles etc
-
-
-IMPORTANT: Make two commits. First commit with original code. Second with your refactor so we can easily trace changes. 
-
-
-NB: you do not need to set up the code on local and make the web app run. It will not run as its not a complete web app. This is purely to assess you thoughts about code, formatting, logic etc
-
-
-===== So expected output is a GitHub link with either =====
-
-1. Readme described above (point X above) + refactored code 
-OR
-2. Readme described above (point X above) + refactored core + a unit test of the code that we have sent
-
-Thank you!
-
-
+Instead of long functions we need to follow solid prinicples. 
+Functions are doing multiple jobs in repositories. 

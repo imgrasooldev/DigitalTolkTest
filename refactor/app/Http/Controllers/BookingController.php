@@ -8,6 +8,9 @@ use DTApi\Models\Distance;
 use Illuminate\Http\Request;
 use DTApi\Repository\BookingRepository;
 
+
+//! code inside every function should be in try catch block
+
 /**
  * Class BookingController
  * @package DTApi\Http\Controllers
@@ -35,17 +38,29 @@ class BookingController extends Controller
      */
     public function index(Request $request)
     {
-        if($user_id = $request->get('user_id')) {
 
-            $response = $this->repository->getUsersJobs($user_id);
+        try {
 
+            $user_id = Auth::id();
+
+            // It looks like we've ADMIN_ROLE_ID and SUPERADMIN_ROLE_ID in integer format
+            // thats not a good practice as it looks like we are managing roles not in propery way
+            // we've some good packages like spatie laravel permissions to handle role and permission
+            // and need to implmeent this or these kind of official package for the roles and permission 
+            // management
+
+            // BTW here I'm integrating php in_array method
+            if (in_array($user_id, [env('ADMIN_ROLE_ID'), env('SUPERADMIN_ROLE_ID')])) {
+                $response = $this->repository->getAll($request);
+            } else {
+                $response = $this->repository->getUsersJobs($user_id);
+            }
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
         }
-        elseif($request->__authenticatedUser->user_type == env('ADMIN_ROLE_ID') || $request->__authenticatedUser->user_type == env('SUPERADMIN_ROLE_ID'))
-        {
-            $response = $this->repository->getAll($request);
-        }
-
-        return response($response);
     }
 
     /**
@@ -54,9 +69,18 @@ class BookingController extends Controller
      */
     public function show($id)
     {
-        $job = $this->repository->with('translatorJobRel.user')->find($id);
-
-        return response($job);
+        $job = $this->repository->findWithRelationsTranslatorJobRelUser($id);
+        if (is_null($job)) {
+            //! this response should be dynamice
+            return response()->json(array('message' => 'no record found.'), 404);
+        }
+        //! this response should be dynamice
+        return response()->json($job, 200);
+        try {
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     /**
@@ -65,12 +89,15 @@ class BookingController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->all();
-
-        $response = $this->repository->store($request->__authenticatedUser, $data);
-
-        return response($response);
-
+        try {
+            $response   = $this->repository->store($request->__authenticatedUser, $request->all());
+            $status     = $response['status'] == 'fail' ? 400 : 200;
+            //! this response should be dynamice
+            return response()->json($response, $status);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     /**
@@ -80,11 +107,14 @@ class BookingController extends Controller
      */
     public function update($id, Request $request)
     {
-        $data = $request->all();
-        $cuser = $request->__authenticatedUser;
-        $response = $this->repository->updateJob($id, array_except($data, ['_token', 'submit']), $cuser);
-
-        return response($response);
+        try {
+            $response   = $this->repository->updateJob($id, array_except($request->all(), ['_token', 'submit']), $request->__authenticatedUser);
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message', $e->getMessage()), 500);
+        }
     }
 
     /**
@@ -93,12 +123,16 @@ class BookingController extends Controller
      */
     public function immediateJobEmail(Request $request)
     {
-        $adminSenderEmail = config('app.adminemail');
-        $data = $request->all();
-
-        $response = $this->repository->storeJobEmail($data);
-
-        return response($response);
+        try {
+            // no use of $adminSenderEmail found
+            // $adminSenderEmail   = config('app.adminemail');
+            $response           = $this->repository->storeJobEmail();
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     /**
@@ -107,10 +141,22 @@ class BookingController extends Controller
      */
     public function getHistory(Request $request)
     {
-        if($user_id = $request->get('user_id')) {
 
-            $response = $this->repository->getUsersJobsHistory($user_id, $request);
-            return response($response);
+        try {
+
+            $user_id = $request->has('user_id');
+
+            if ($user_id) {
+                $response = $this->repository->getUsersJobsHistory($request->user_id, $request);
+                //! this response should be dynamice
+                return response()->json($response, 200);
+            } else {
+                //! this response should be dynamice
+                return response()->json(array('message' => 'Unauthorized'), 401);
+            }
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
         }
 
         return null;
@@ -122,22 +168,28 @@ class BookingController extends Controller
      */
     public function acceptJob(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->acceptJob($data, $user);
-
-        return response($response);
+        try {
+            $response = $this->repository->acceptJob($request->all(), $request->__authenticatedUser);
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     public function acceptJobWithId(Request $request)
     {
-        $data = $request->get('job_id');
-        $user = $request->__authenticatedUser;
+        try {
+            $jobId = $request->input('job_id');
+            $user = $request->__authenticatedUser;
 
-        $response = $this->repository->acceptJobWithId($data, $user);
+            $response = $this->repository->acceptJobWithId($jobId, $user);
 
-        return response($response);
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -146,36 +198,45 @@ class BookingController extends Controller
      */
     public function cancelJob(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
-
-        $response = $this->repository->cancelJobAjax($data, $user);
-
-        return response($response);
+        try {
+            $response = $this->repository->cancelJobAjax($request->all(), $user);
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     /**
      * @param Request $request
      * @return mixed
      */
+
+    //!  Every function code shous be in try catch bloc 
     public function endJob(Request $request)
     {
-        $data = $request->all();
+        try {
 
-        $response = $this->repository->endJob($data);
-
-        return response($response);
-
+            $response = $this->repository->endJob($request->all());
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     public function customerNotCall(Request $request)
     {
-        $data = $request->all();
-
-        $response = $this->repository->customerNotCall($data);
-
-        return response($response);
-
+        try {
+            $response = $this->repository->customerNotCall($request->all());
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     /**
@@ -184,92 +245,86 @@ class BookingController extends Controller
      */
     public function getPotentialJobs(Request $request)
     {
-        $data = $request->all();
-        $user = $request->__authenticatedUser;
+        try {
+            // $data variable is not in use
+            // $data = $request->all();
 
-        $response = $this->repository->getPotentialJobs($user);
+            $response = $this->repository->getPotentialJobs($request->__authenticatedUser);
 
-        return response($response);
+            //! this response should be dynamice
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
+        }
     }
 
     public function distanceFeed(Request $request)
     {
-        $data = $request->all();
+        try {
+            $data = $request->all();
 
-        if (isset($data['distance']) && $data['distance'] != "") {
-            $distance = $data['distance'];
-        } else {
-            $distance = "";
-        }
-        if (isset($data['time']) && $data['time'] != "") {
-            $time = $data['time'];
-        } else {
-            $time = "";
-        }
-        if (isset($data['jobid']) && $data['jobid'] != "") {
-            $jobid = $data['jobid'];
-        }
+            $distance = isset($data['distance']) && $data['distance'] != "" ? $data['distance'] : "";
+            $time = isset($data['time']) && $data['time'] != "" ? $data['time'] : "";
+            $jobid = isset($data['jobid']) && $data['jobid'] != "" ? $data['jobid'] : "";
+            $session = isset($data['session_time']) && $data['session_time'] != "" ? $data['session_time'] : "";
+            $admincomment = isset($data['admincomment']) && $data['admincomment'] != "" ? $data['admincomment'] : "";
 
-        if (isset($data['session_time']) && $data['session_time'] != "") {
-            $session = $data['session_time'];
-        } else {
-            $session = "";
+            $flagged = $data['flagged'] == 'true' ? 'yes' : 'no';
+            $manually_handled = $data['manually_handled'] == 'true' ? 'yes' : 'no';
+            $by_admin = $data['by_admin'] == 'true' ? 'yes' : 'no';
+
+            if (
+                $time || $distance
+            ) {
+                $affectedRows = Distance::where('job_id', '=', $jobid)->update(['distance' => $distance, 'time' => $time]);
+            }
+
+            if ($admincomment || $session || $flagged || $manually_handled || $by_admin) {
+                $updatedData = [
+                    'admin_comments' => $admincomment,
+                    'flagged' => $flagged,
+                    'session_time' => $session,
+                    'manually_handled' => $manually_handled,
+                    'by_admin' => $by_admin
+                ];
+                $affectedRows1 = Job::where('id', '=', $jobid)->update($updatedData);
+            }
+
+            return response('Record updated!');
+        } catch (\Exception $e) {
+            //! this response should be dynamice
+            return response()->json(array('message' => $e->getMessage()), 500);
         }
-
-        if ($data['flagged'] == 'true') {
-            if($data['admincomment'] == '') return "Please, add comment";
-            $flagged = 'yes';
-        } else {
-            $flagged = 'no';
-        }
-        
-        if ($data['manually_handled'] == 'true') {
-            $manually_handled = 'yes';
-        } else {
-            $manually_handled = 'no';
-        }
-
-        if ($data['by_admin'] == 'true') {
-            $by_admin = 'yes';
-        } else {
-            $by_admin = 'no';
-        }
-
-        if (isset($data['admincomment']) && $data['admincomment'] != "") {
-            $admincomment = $data['admincomment'];
-        } else {
-            $admincomment = "";
-        }
-        if ($time || $distance) {
-
-            $affectedRows = Distance::where('job_id', '=', $jobid)->update(array('distance' => $distance, 'time' => $time));
-        }
-
-        if ($admincomment || $session || $flagged || $manually_handled || $by_admin) {
-
-            $affectedRows1 = Job::where('id', '=', $jobid)->update(array('admin_comments' => $admincomment, 'flagged' => $flagged, 'session_time' => $session, 'manually_handled' => $manually_handled, 'by_admin' => $by_admin));
-
-        }
-
-        return response('Record updated!');
     }
 
     public function reopen(Request $request)
     {
-        $data = $request->all();
-        $response = $this->repository->reopen($data);
-
-        return response($response);
+        try {
+            $response = $this->repository->reopen($request->all());
+            return response()->json($response, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     public function resendNotifications(Request $request)
     {
-        $data = $request->all();
-        $job = $this->repository->find($data['jobid']);
-        $job_data = $this->repository->jobToData($job);
-        $this->repository->sendNotificationTranslator($job, $job_data, '*');
+        try {
+            $jobId = $request->input('job_id');
+            $job = $this->repository->find($jobId);
 
-        return response(['success' => 'Push sent']);
+            if ($job) {
+                $job_data = $this->repository->jobToData($job);
+                $this->repository->sendNotificationTranslator($job, $job_data, '*');
+
+                return response()->json(['success' => 'Push sent'], 200);
+            } else {
+                return response()->json(['error' => 'Job not found'], 404);
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 
     /**
@@ -279,16 +334,20 @@ class BookingController extends Controller
      */
     public function resendSMSNotifications(Request $request)
     {
-        $data = $request->all();
-        $job = $this->repository->find($data['jobid']);
-        $job_data = $this->repository->jobToData($job);
-
         try {
-            $this->repository->sendSMSNotificationToTranslator($job);
-            return response(['success' => 'SMS sent']);
+            $jobId = $request->input('jobid');
+            $job = $this->repository->find($jobId);
+
+            if ($job) {
+                $job_data = $this->repository->jobToData($job);
+                $this->repository->sendSMSNotificationToTranslator($job);
+
+                return response()->json(['success' => 'SMS sent'], 200);
+            } else {
+                return response()->json(['error' => 'Job not found'], 404);
+            }
         } catch (\Exception $e) {
-            return response(['success' => $e->getMessage()]);
+            return response()->json(['error' => $e->getMessage()], 500);
         }
     }
-
 }
